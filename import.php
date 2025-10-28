@@ -118,13 +118,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
                 ]);
             }
 
-            // Inserir Similar
+            // Inserir Similar: Aqui vamos buscar o ID do produto similar a partir do código de referência (similar_reference)
             if ($similar_reference !== '') {
-                $st = $pdo->prepare("INSERT INTO similar_product (product_id, similar_id, relation_type)
-                                     VALUES (:pid, :sim_pid, :relation_type)");
-                $st->execute([
-                    ':pid' => $product_id, ':sim_pid' => $similar_reference, ':relation_type' => $similar_relation_type
-                ]);
+                // Buscar o ID do produto similar a partir da referência
+                $stp = $pdo->prepare("SELECT id FROM product WHERE reference = :ref LIMIT 1");
+                $stp->execute([':ref' => $similar_reference]);
+                $similar_product_id = (int)$stp->fetchColumn();
+
+                if ($similar_product_id) {
+                    $st = $pdo->prepare("INSERT INTO similar_product (product_id, similar_id, relation_type)
+                                         VALUES (:pid, :sim_pid, :relation_type)");
+                    $st->execute([
+                        ':pid' => $product_id, ':sim_pid' => $similar_product_id, ':relation_type' => $similar_relation_type
+                    ]);
+                }
             }
         }
         fclose($f);
