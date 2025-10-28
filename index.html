@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busca de Peças</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        input[type="text"] { padding: 8px; width: 80%; }
+        button { padding: 8px 12px; cursor: pointer; }
+        table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    </style>
+</head>
+<body>
+
+<h1>Busca de Peças</h1>
+<input type="text" id="searchInput" placeholder="Digite a referência ou nome da peça...">
+<button onclick="searchProduct()">Buscar</button>
+
+<table id="resultsTable" style="display:none;">
+    <thead>
+        <tr>
+            <th>Referência</th>
+            <th>Nome</th>
+            <th>Descrição</th>
+            <th>Marca</th>
+            <th>Categoria</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script>
+function searchProduct() {
+    let query = document.getElementById('searchInput').value;
+    if (query.length < 3) {
+        alert('Por favor, insira pelo menos 3 caracteres.');
+        return;
+    }
+
+    fetch('search.php?q=' + encodeURIComponent(query))
+    .then(response => response.json())
+    .then(data => {
+        let resultsTable = document.getElementById('resultsTable');
+        let tbody = resultsTable.querySelector('tbody');
+        tbody.innerHTML = '';  // Clear previous results
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        resultsTable.style.display = 'table';
+        data.forEach(item => {
+            let row = tbody.insertRow();
+            row.insertCell(0).textContent = item.reference;
+            row.insertCell(1).textContent = item.name;
+            row.insertCell(2).textContent = item.description;
+            row.insertCell(3).textContent = item.brand;
+            row.insertCell(4).textContent = item.category;
+        });
+    });
+}
+</script>
+
+</body>
+</html>
