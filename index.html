@@ -1,74 +1,185 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Busca de Peças</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        input[type="text"], select { padding: 8px; width: 80%; }
-        button { padding: 8px 12px; cursor: pointer; }
-        table { width: 100%; margin-top: 20px; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Busca de Peças - Interno</title>
+<style>
+  body {font-family: Arial, sans-serif; margin: 24px;}
+  .tabs {display: flex; gap: 8px; margin-bottom: 12px;}
+  .tab {padding: 8px 12px; border: 1px solid #ccc; cursor: pointer; border-radius: 6px;}
+  .tab.active {background:#111; color:#fff;}
+  .panel {display:none;}
+  .panel.active {display:block;}
+  input, select, button {padding:8px; margin:6px 0;}
+  table {width:100%; border-collapse: collapse; margin-top: 12px;}
+  th, td {border:1px solid #ddd; padding:8px; font-size:14px;}
+  th {background:#f3f3f3;}
+  .rownote {font-size:12px; color:#555;}
+</style>
 </head>
 <body>
 
 <h1>Busca de Peças</h1>
-<form id="searchForm">
-    <input type="text" id="pieceName" placeholder="Digite o nome da peça (ex: Barra de direção)" required><br><br>
-    <input type="text" id="vehicleBrand" placeholder="Marca do veículo (ex: Toyota)" required><br><br>
-    <input type="text" id="vehicleModel" placeholder="Modelo do veículo (ex: Corolla)" required><br><br>
-    <button type="button" onclick="searchProduct()">Buscar</button>
-</form>
+<div class="tabs">
+  <div class="tab active" data-tab="ref">Por Referência/Código</div>
+  <div class="tab" data-tab="text">Por Texto</div>
+  <div class="tab" data-tab="vehicle">Por Veículo</div>
+</div>
 
-<table id="resultsTable" style="display:none;">
-    <thead>
-        <tr>
-            <th>Referência</th>
-            <th>Nome</th>
-            <th>Descrição</th>
-            <th>Marca</th>
-            <th>Categoria</th>
-            <th>Marca Veículo</th>
-            <th>Modelo Veículo</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
+<!-- REF -->
+<div class="panel active" id="panel-ref">
+  <label>Referência / Código OEM / Equivalente:</label><br>
+  <input id="ref-q" placeholder="ex.: ABC-123 ou GM24578111" style="width:60%">
+  <button onclick="searchByRef()">Buscar</button>
+  <button onclick="searchByCross()">Buscar (Cross/OEM)</button>
+  <div id="ref-results"></div>
+</div>
+
+<!-- TEXT -->
+<div class="panel" id="panel-text">
+  <label>Texto:</label><br>
+  <input id="text-q" placeholder="ex.: barra de direção corolla" style="width:60%">
+  <button onclick="searchByText()">Buscar</button>
+  <div id="text-results"></div>
+</div>
+
+<!-- VEHICLE -->
+<div class="panel" id="panel-vehicle">
+  <div>
+    <label>Marca:</label><br>
+    <select id="veh-brand" onchange="loadModels()" style="min-width:240px"></select>
+  </div>
+  <div>
+    <label>Modelo:</label><br>
+    <select id="veh-model" style="min-width:240px"></select>
+  </div>
+  <div>
+    <label>Ano (opcional):</label><br>
+    <input id="veh-year" type="number" min="1900" max="2100" style="width:120px">
+  </div>
+  <div>
+    <label>Peça (texto, opcional):</label><br>
+    <input id="veh-piece" placeholder="ex.: barra, filtro, pastilha..." style="width:60%">
+  </div>
+  <button onclick="searchByVehicle()">Buscar</button>
+  <div id="veh-results"></div>
+</div>
 
 <script>
-function searchProduct() {
-    let pieceName = document.getElementById('pieceName').value;
-    let vehicleBrand = document.getElementById('vehicleBrand').value;
-    let vehicleModel = document.getElementById('vehicleModel').value;
+const tabs = document.querySelectorAll('.tab');
+const panels = {
+  'ref': document.getElementById('panel-ref'),
+  'text': document.getElementById('panel-text'),
+  'vehicle': document.getElementById('panel-vehicle'),
+};
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  Object.values(panels).forEach(p => p.classList.remove('active'));
+  panels[t.dataset.tab].classList.add('active');
+}));
 
-    fetch(`search.php?q=${encodeURIComponent(pieceName)}&vehicle_brand=${encodeURIComponent(vehicleBrand)}&vehicle_model=${encodeURIComponent(vehicleModel)}`)
-    .then(response => response.json())
-    .then(data => {
-        let resultsTable = document.getElementById('resultsTable');
-        let tbody = resultsTable.querySelector('tbody');
-        tbody.innerHTML = '';  // Clear previous results
-
-        if (data.error) {
-            alert(data.error);
-            return;
-        }
-
-        resultsTable.style.display = 'table';
-        data.forEach(item => {
-            let row = tbody.insertRow();
-            row.insertCell(0).textContent = item.reference;
-            row.insertCell(1).textContent = item.name;
-            row.insertCell(2).textContent = item.description;
-            row.insertCell(3).textContent = item.brand;
-            row.insertCell(4).textContent = item.category;
-            row.insertCell(5).textContent = item.vehicle_brand;
-            row.insertCell(6).textContent = item.vehicle_model;
-        });
-    });
+function renderTable(el, rows, extraCols=[]) {
+  if (!rows || rows.length===0) { el.innerHTML = '<p>Nenhum resultado.</p>'; return; }
+  let thead = `<tr>
+    <th>Ref.</th><th>Nome</th><th>Marca</th><th>Categoria</th>
+    ${extraCols.map(c=>`<th>${c}</th>`).join('')}
+  </tr>`;
+  let tbody = rows.map(r => `
+    <tr>
+      <td>${r.reference||''}</td>
+      <td>${r.name||''}</td>
+      <td>${r.brand||''}</td>
+      <td>${r.category||''}</td>
+      ${extraCols.map(c=>`<td>${r[c.toLowerCase().replaceAll(' ','_')]||r[c]||''}</td>`).join('')}
+    </tr>
+    ${r.description ? `<tr><td colspan="${4+extraCols.length}" class="rownote">${r.description}</td></tr>`: '' }
+  `).join('');
+  el.innerHTML = `<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
 }
-</script>
 
+async function searchByRef() {
+  const q = document.getElementById('ref-q').value.trim();
+  if (!q) return alert('Informe a referência/código.');
+  const res = await fetch(`search.php?action=by_ref&q=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  renderTable(document.getElementById('ref-results'), data);
+}
+async function searchByCross() {
+  const q = document.getElementById('ref-q').value.trim();
+  if (!q) return alert('Informe o código OEM/Equivalente.');
+  const res = await fetch(`search.php?action=by_cross&q=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  renderTable(document.getElementById('ref-results'), data);
+}
+async function searchByText() {
+  const q = document.getElementById('text-q').value.trim();
+  if (q.length<2) return alert('Mínimo 2 caracteres.');
+  const res = await fetch(`search.php?action=by_text&q=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  renderTable(document.getElementById('text-results'), data);
+}
+async function loadBrands() {
+  const res = await fetch('search.php?action=list_brands');
+  const arr = await res.json();
+  const sel = document.getElementById('veh-brand');
+  sel.innerHTML = '';
+  arr.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.brand_name; opt.textContent = r.brand_name;
+    sel.appendChild(opt);
+  });
+  if (arr.length) await loadModels();
+}
+async function loadModels() {
+  const brand = document.getElementById('veh-brand').value;
+  const res = await fetch(`search.php?action=list_models&brand=${encodeURIComponent(brand)}`);
+  const arr = await res.json();
+  const sel = document.getElementById('veh-model');
+  sel.innerHTML = '';
+  arr.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.model_name; opt.textContent = r.model_name;
+    sel.appendChild(opt);
+  });
+}
+async function searchByVehicle() {
+  const brand = document.getElementById('veh-brand').value;
+  const model = document.getElementById('veh-model').value;
+  const year  = document.getElementById('veh-year').value;
+  const piece = document.getElementById('veh-piece').value.trim();
+  const qs = new URLSearchParams({action:'by_application', brand, model});
+  if (year) qs.append('year', year);
+  if (piece) qs.append('piece', piece);
+  const res = await fetch(`search.php?${qs.toString()}`);
+  const data = await res.json();
+  // Render com colunas extras de veículo/ano
+  const el = document.getElementById('veh-results');
+  if (!Array.isArray(data) || data.length===0) { el.innerHTML = '<p>Nenhum resultado.</p>'; return; }
+  const thead = `<tr>
+    <th>Ref.</th><th>Nome</th><th>Marca</th><th>Categoria</th>
+    <th>Veículo</th><th>Ano De</th><th>Ano Até</th><th>Motor</th><th>Combust.</th><th>Carroceria</th>
+  </tr>`;
+  const tbody = data.map(r => `
+    <tr>
+      <td>${r.reference||''}</td>
+      <td>${r.name||''}</td>
+      <td>${r.brand||''}</td>
+      <td>${r.category||''}</td>
+      <td>${(r.vehicle_brand||'')+' '+(r.vehicle_model||'')}</td>
+      <td>${r.year_from||''}</td>
+      <td>${r.year_to||''}</td>
+      <td>${r.engine||''}</td>
+      <td>${r.fuel||''}</td>
+      <td>${r.body||''}</td>
+    </tr>
+    ${r.description ? `<tr><td colspan="10" class="rownote">${r.description}</td></tr>`: '' }
+  `).join('');
+  el.innerHTML = `<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+// init
+loadBrands();
+</script>
 </body>
 </html>
