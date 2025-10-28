@@ -1,0 +1,3 @@
+product_reference,vehicle_brand,vehicle_model,year_from,year_to,engine,fuel,body,notes
+ABC-123,Toyota,Corolla,2010,2022,1.8,Flex,Sedan,"Todas versões com EPS"
+XYZ.789,Chevrolet,Onix,2013,2019,1.0/1.4,Flex,Hatch,"Verificar rosca"
