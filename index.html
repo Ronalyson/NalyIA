@@ -6,7 +6,7 @@
     <title>Busca de Peças</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
-        input[type="text"] { padding: 8px; width: 80%; }
+        input[type="text"], select { padding: 8px; width: 80%; }
         button { padding: 8px 12px; cursor: pointer; }
         table { width: 100%; margin-top: 20px; border-collapse: collapse; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -15,8 +15,12 @@
 <body>
 
 <h1>Busca de Peças</h1>
-<input type="text" id="searchInput" placeholder="Digite a referência ou nome da peça...">
-<button onclick="searchProduct()">Buscar</button>
+<form id="searchForm">
+    <input type="text" id="pieceName" placeholder="Digite o nome da peça (ex: Barra de direção)" required><br><br>
+    <input type="text" id="vehicleBrand" placeholder="Marca do veículo (ex: Toyota)" required><br><br>
+    <input type="text" id="vehicleModel" placeholder="Modelo do veículo (ex: Corolla)" required><br><br>
+    <button type="button" onclick="searchProduct()">Buscar</button>
+</form>
 
 <table id="resultsTable" style="display:none;">
     <thead>
@@ -26,6 +30,8 @@
             <th>Descrição</th>
             <th>Marca</th>
             <th>Categoria</th>
+            <th>Marca Veículo</th>
+            <th>Modelo Veículo</th>
         </tr>
     </thead>
     <tbody></tbody>
@@ -33,13 +39,11 @@
 
 <script>
 function searchProduct() {
-    let query = document.getElementById('searchInput').value;
-    if (query.length < 3) {
-        alert('Por favor, insira pelo menos 3 caracteres.');
-        return;
-    }
+    let pieceName = document.getElementById('pieceName').value;
+    let vehicleBrand = document.getElementById('vehicleBrand').value;
+    let vehicleModel = document.getElementById('vehicleModel').value;
 
-    fetch('search.php?q=' + encodeURIComponent(query))
+    fetch(`search.php?q=${encodeURIComponent(pieceName)}&vehicle_brand=${encodeURIComponent(vehicleBrand)}&vehicle_model=${encodeURIComponent(vehicleModel)}`)
     .then(response => response.json())
     .then(data => {
         let resultsTable = document.getElementById('resultsTable');
@@ -59,6 +63,8 @@ function searchProduct() {
             row.insertCell(2).textContent = item.description;
             row.insertCell(3).textContent = item.brand;
             row.insertCell(4).textContent = item.category;
+            row.insertCell(5).textContent = item.vehicle_brand;
+            row.insertCell(6).textContent = item.vehicle_model;
         });
     });
 }
